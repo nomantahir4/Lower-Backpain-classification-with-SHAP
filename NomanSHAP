@@ -1,0 +1,71 @@
+!pip install shap
+import nltk
+import io
+import pandas as pd
+import shap
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from google.colab import files
+uploaded = files.upload()
+dset = pd.read_csv(io.BytesIO(uploaded['Dataset_spine.csv']))
+#renaming the attributes to real names of features
+dset.rename(columns = {
+    "Col1" : "pelvic_incidence", 
+    "Col2" : "pelvic_tilt",
+    "Col3" : "lumbar_lordosis_angle",
+    "Col4" : "sacral_slope", 
+    "Col5" : "pelvic_radius",
+    "Col6" : "degree_spondylolisthesis", 
+    "Col7" : "pelvic_slope",
+    "Col8" : "direct_tilt",
+    "Col9" : "thoracic_slope", 
+    "Col10" :"cervical_tilt", 
+    "Col11" : "sacrum_angle",
+    "Col12" : "scoliosis_slope", 
+    "Class_att" : "class"}, inplace=True)
+#printing the feature names in order to confirm
+feature_names = [i for i in dset.columns ]
+print(feature_names)
+#showing the description of the table to 
+dset.info()
+dset.head(5)
+# displaying abnormal and normal occurence
+dset["class"].value_counts().sort_index().plot.bar()
+#showing values of each feature set individuall in graph
+dset.hist(figsize=(15,12),bins = 20, color="#7FFF00")
+plt.title("Features Values Display")
+plt.show()
+#RandomForest starts here
+y = (dset['class'])
+feature_names = [i for i in dset.columns ] 
+X = dset[feature_names]
+
+train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
+
+my_model = RandomForestClassifier(random_state=1).fit(train_X.values, train_y)
+
+row_to_show = 20
+data_for_prediction = val_X.iloc[row_to_show]
+data_for_prediction_array = data_for_prediction.values.reshape(1, -1)
+
+
+my_model.predict_proba(data_for_prediction_array)
+
+
+# Created object that can calculate shap values
+explainer = shap.TreeExplainer(my_model)
+
+# Calculated Shap values
+shap_values = explainer.shap_values(data_for_prediction)
+
+shap.initjs()
+shap.force_plot(explainer.expected_value[1], shap_values[1], data_for_prediction)
+
+
+
+# usage of Kernel SHAP to explain test set predictions
+k_explainer = shap.KernelExplainer(my_model.predict_proba, train_X)
+k_shap_values = k_explainer.shap_values(data_for_prediction)
+shap.force_plot(k_explainer.expected_value[1], k_shap_values[1], data_for_prediction)
